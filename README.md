@@ -63,13 +63,13 @@ docker run --env-file .env -p 8000:8000 ragify
 
 1. Upload a File
 	•	POST /upload
-	•	Body: form-data
-	•	file: (upload your .pdf or .csv)
+	•	Body: form-data <br>
+	•	file: (upload your .pdf or .csv) <br>
 
 2. Chat with your data
 	•	POST /chat
-	•	Query Params:
-	•	user_input: "What is this document about?"
+	•	Query Params: <br>
+	•	user_input: "What is this document about?" <br>
 	•	session_id: "my-session-id"
 
 Memory is session-based and persists only while the server runs.
