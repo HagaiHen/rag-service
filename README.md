@@ -61,13 +61,13 @@ docker run --env-file .env -p 8000:8000 ragify
 
 ## 💡 API Usage Example
 
-1. Upload a File
-	•	POST /upload
+1. Upload a File <br>
+	•	POST /upload <br>
 	•	Body: form-data <br>
 	•	file: (upload your .pdf or .csv) <br>
 
-2. Chat with your data
-	•	POST /chat
+2. Chat with your data <br>
+	•	POST /chat <br>
 	•	Query Params: <br>
 	•	user_input: "What is this document about?" <br>
 	•	session_id: "my-session-id"
