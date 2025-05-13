@@ -1,0 +1,20 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+
+# Environment variables
+.env
+
+# OS system files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Data (everything inside app/data)
+app/data/
