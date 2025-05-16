@@ -5,13 +5,11 @@ from app.services.faiss_store import search_faiss
 from neo4j import GraphDatabase
 import os
 
-# Neo4j connection (read from .env or config)
 uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 user = os.getenv("NEO4J_USER", "neo4j")
 password = os.getenv("NEO4J_PASSWORD", "your_password")
 
 driver = GraphDatabase.driver(uri, auth=(user, password))
-# === Define tools ===
 
 def graph_query(query: str) -> str:
     cypher_query = f"""
@@ -27,13 +25,11 @@ def vector_search(query: str) -> str:
     chunks = search_faiss(query, k=3)
     return "\n".join(chunks)
 
-# === Setup memory ===
 memory = ConversationBufferMemory(
     memory_key="chat_history",
     return_messages=True
 )
 
-# === Define tools ===
 tools = [
     Tool(
         name="Vector_Search",
@@ -47,7 +43,6 @@ tools = [
     ),
 ]
 
-# === Initialize memory-aware agent ===
 llm = ChatOpenAI(model="gpt-4.1", temperature=0)
 
 agent = initialize_agent(

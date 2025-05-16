@@ -29,7 +29,6 @@ Output only the JSON array of triples.
 
         response = get_openai_completion(prompt)
 
-        # 🔥 Clean the response from ```json and ``` if exists
         cleaned_response = response.strip()
         if cleaned_response.startswith("```json"):
             cleaned_response = cleaned_response[7:].strip()
@@ -49,8 +48,7 @@ Output only the JSON array of triples.
 
     print(f"[GRAPH EXTRACTION] Extracted {len(triples)} triples.")
     return triples
-        
-# === Simple parser assuming format like (A, B, C) ===
+
 def parse_triples_from_response(response_text):
     lines = response_text.strip().split("\n")
     cleaned = []
@@ -65,7 +63,6 @@ def parse_triples_from_response(response_text):
                 continue
     return cleaned
 
-# === Insert triples into Neo4j ===
 def insert_triples_to_neo4j(triples):
     with driver.session() as session:
         for entity1, relation, entity2 in triples:
