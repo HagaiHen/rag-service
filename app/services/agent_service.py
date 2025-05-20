@@ -1,7 +1,9 @@
-from langchain.agents import initialize_agent, AgentType, Tool
+from langchain.agents import initialize_agent, AgentType, Tool, AgentExecutor
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from app.services.faiss_store import search_faiss
+from langchain.agents.conversational.base import ConversationalAgent
+
 from neo4j import GraphDatabase
 import os
 
@@ -43,13 +45,31 @@ tools = [
     ),
 ]
 
-llm = ChatOpenAI(model="gpt-4.1", temperature=0)
+memory_store = {}
 
-agent = initialize_agent(
-    tools=tools,
-    llm=llm,
-    agent=AgentType.OPENAI_FUNCTIONS,
-    memory=memory,
-    verbose=True,
-    handle_parsing_errors=True
-)
+def get_or_create_agent(session_id: str):
+    if session_id not in memory_store:
+        memory_store[session_id] = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True,
+        )
+
+    memory = memory_store[session_id]
+
+    print(f"\n🧠 [MEMORY for session {session_id}]")
+    for msg in memory.chat_memory.messages:
+        role = "User" if msg.type == "human" else "Assistant"
+        print(f"{role}: {msg.content}")
+
+
+    agent_chain = ConversationalAgent.from_llm_and_tools(
+        llm=llm,
+        tools=tools,
+        memory=memory,
+        agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,
+        verbose=True
+    )
+
+    return AgentExecutor(agent=agent_chain, tools=tools, memory=memory, verbose=True)
+
+llm = ChatOpenAI(model="gpt-4.1", temperature=0)
