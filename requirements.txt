@@ -8,3 +8,4 @@ pymupdf
 pandas
 python-multipart
 typing
+neo4j

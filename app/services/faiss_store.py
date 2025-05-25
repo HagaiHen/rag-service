@@ -12,7 +12,6 @@ embedding_model = OpenAIEmbeddings()
 VECTOR_STORE_PATH = "app/data/vector_store"
 os.makedirs(os.path.dirname(VECTOR_STORE_PATH), exist_ok=True)
 
-# This is a lazy global reference to hold the store after first use
 vector_store = None
 
 

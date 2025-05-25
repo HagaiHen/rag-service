@@ -1,4 +1,4 @@
-import fitz  # PyMuPDF
+import fitz
 import pandas as pd
 from typing import List
 from app.services.embedding import embed_text
