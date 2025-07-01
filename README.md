@@ -23,7 +23,7 @@ It allows you to **upload PDF or CSV documents, store them as vector embeddings 
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/ragify.git
+git clone https://github.com/your-username/rag-service.git
 cd rag-service
 ```
 
