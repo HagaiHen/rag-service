@@ -8,16 +8,39 @@ load_dotenv()
 
 TTL_SECONDS = 15 * 60  # 15 minutes
 
-client = MongoClient(os.getenv("MONGO_URI"))
-db = client[os.getenv("MONGO_DB", "rag_service")]
-collection = db["chat_history"]
+# Fix: Use MONGO_URI to match .env file
+mongo_uri = os.getenv("MONGO_URI")
+if not mongo_uri:
+    print("⚠️ MONGO_URI environment variable not found!")
+    mongo_uri = "mongodb://localhost:27017"  # fallback
+
+print(f"🔗 Connecting to MongoDB: {mongo_uri[:50]}...")
+
+try:
+    client = MongoClient(mongo_uri)
+    # Test the connection
+    client.admin.command('ping')
+    print("✅ MongoDB connection successful!")
+except Exception as e:
+    print(f"❌ MongoDB connection failed: {e}")
+    # Create a dummy client for development
+    client = None
+
+if client is not None:
+    db = client[os.getenv("MONGO_DB", "rag_service")]
+else:
+    db = None
+if db is not None:
+    collection = db["chat_history"]
+else:
+    collection = None
 
 # In-memory history cache keyed by (session_id, user_id)
 session_memory: Dict[Tuple[str, str], List[dict]] = {}
 # Track last activity for each session to support cleanup
 session_last_access: Dict[Tuple[str, str], float] = {}
 
-
+print('session_memory', session_memory)
 def _cleanup_expired_sessions() -> None:
     """Remove cached sessions that haven't been used recently."""
     now = time.time()
@@ -31,14 +54,27 @@ def _cleanup_expired_sessions() -> None:
 
 def _fetch_history_from_db(user_id: str, session_id: Optional[str] = None) -> Union[List[dict], Dict[str, List[dict]]]:
     """Fetch chat history from MongoDB."""
-    if session_id:
-        doc = collection.find_one({"user_id": user_id, "session_id": session_id})
-        if not doc:
-            return []
-        return doc.get("history", [])
+    print(f"🗄️ Fetching from DB - user_id: {user_id}, session_id: {session_id}")
+    
+    if collection is None:
+        print("⚠️ MongoDB collection not available, returning empty result")
+        return [] if session_id else {}
+    
+    try:
+        if session_id:
+            doc = collection.find_one({"user_id": user_id, "session_id": session_id})
+            print(f"📄 Found document: {doc}")
+            if not doc:
+                return []
+            return doc.get("history", [])
 
-    docs = collection.find({"user_id": user_id})
-    return {d["session_id"]: d.get("history", []) for d in docs}
+        docs = collection.find({"user_id": user_id})
+        docs_list = list(docs)
+        print(f"📚 Found {len(docs_list)} documents for user: {docs_list}")
+        return {d["session_id"]: d.get("history", []) for d in docs_list}
+    except Exception as e:
+        print(f"❌ Error fetching from MongoDB: {e}")
+        return [] if session_id else {}
 
 
 def get_history(user_id: str, session_id: Optional[str] = None) -> Union[List[dict], Dict[str, List[dict]]]:
@@ -101,9 +137,39 @@ def update_memory(user_id: str, session_id: str, user_input: str, answer: str):
     session_last_access[key] = time.time()
 
     # Persist to MongoDB
-    collection.update_one(
-        {"user_id": user_id, "session_id": session_id},
-        {"$push": {"history": {"$each": entries}}},
-        upsert=True,
-    )
+    if collection is not None:
+        try:
+            collection.update_one(
+                {"user_id": user_id, "session_id": session_id},
+                {"$push": {"history": {"$each": entries}}},
+                upsert=True,
+            )
+            print(f"💾 Saved to MongoDB: user_id={user_id}, session_id={session_id}")
+        except Exception as e:
+            print(f"❌ Error saving to MongoDB: {e}")
+    else:
+        print("⚠️ MongoDB not available, only using in-memory cache")
+
+
+def delete_session_history(user_id: str, session_id: str) -> bool:
+    """Delete a specific session's history from both MongoDB and in-memory cache."""
+    print(f"🗑️ Deleting session history: user_id={user_id}, session_id={session_id}")
+    
+    # Remove from in-memory cache
+    key = (session_id, user_id)
+    session_memory.pop(key, None)
+    session_last_access.pop(key, None)
+    
+    # Remove from MongoDB
+    if collection is not None:
+        try:
+            result = collection.delete_one({"user_id": user_id, "session_id": session_id})
+            print(f"🗑️ Deleted from MongoDB: {result.deleted_count} document(s)")
+            return result.deleted_count > 0
+        except Exception as e:
+            print(f"❌ Error deleting from MongoDB: {e}")
+            return False
+    else:
+        print("⚠️ MongoDB not available, only deleted from in-memory cache")
+        return True
 

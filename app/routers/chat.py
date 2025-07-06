@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Query
 from typing import Optional
 from app.services.faiss_store import search_faiss
-from app.services.memory import get_memory, update_memory, get_history
+from app.services.memory import get_memory, update_memory, get_history, delete_session_history
 from app.services.openai_llm import get_openai_completion
+import logging
 
 router = APIRouter()
 
@@ -30,4 +31,20 @@ async def chat_history(
     user_id: str = Query(...),
     session_id: Optional[str] = Query(None),
 ):
-    return {"history": get_history(user_id, session_id)}
+    print(f"🔍 Fetching history for user_id: {user_id}, session_id: {session_id}")
+    history = get_history(user_id, session_id)
+    print(f"📋 Found history: {history}")
+    return {"history": history}
+
+
+@router.delete("/history")
+async def delete_history(
+    user_id: str = Query(...),
+    session_id: str = Query(...),
+):
+    print(f"🗑️ Deleting history for user_id: {user_id}, session_id: {session_id}")
+    success = delete_session_history(user_id, session_id)
+    if success:
+        return {"message": "Session history deleted successfully"}
+    else:
+        return {"error": "Failed to delete session history"}, 400
