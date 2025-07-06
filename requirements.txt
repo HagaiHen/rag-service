@@ -8,3 +8,6 @@ pymupdf
 pandas
 python-multipart
 typing
+langchain
+langchain-community
+tiktoken

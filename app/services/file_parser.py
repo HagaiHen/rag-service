@@ -14,6 +14,10 @@ async def parse_file(file) -> List[str]:
     elif filename.endswith(".csv"):
         df = pd.read_csv(file.file)
         content.append("\n".join(df.astype(str).agg(" ".join, axis=1)))
+    elif filename.endswith(".txt"):
+        file.file.seek(0)
+        text = file.file.read().decode("utf-8")
+        content.append(text)
     else:
         raise ValueError("Unsupported file type")
 
