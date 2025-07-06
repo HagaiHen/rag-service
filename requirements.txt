@@ -7,4 +7,5 @@ python-dotenv
 pymupdf
 pandas
 python-multipart
+pymongo
 typing

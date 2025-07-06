@@ -28,8 +28,10 @@ cd rag-service
 ```
 
 2.	Create .env file in the root:
- ```bash
+```bash
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
+MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net
+MONGO_DB=rag_service
 ```
 
 3.	Install dependencies:
@@ -67,12 +69,22 @@ docker run --env-file .env -p 8000:8000 ragify
 	•	file: (upload your .pdf or .csv) <br>
 
 2. Chat with your data <br>
-	•	POST /chat <br>
-	•	Query Params: <br>
-	•	user_input: "What is this document about?" <br>
-	•	session_id: "my-session-id"
+        •       POST /chat <br>
+        •       Query Params: <br>
+        •       user_input: "What is this document about?" <br>
+        •       session_id: "my-session-id" <br>
+        •       user_id: "my-user"
 
-Memory is session-based and persists only while the server runs.
+3. Retrieve chat history <br>
+        •       GET /history <br>
+        •       Query Params: <br>
+        •       user_id: "my-user" <br>
+        •       session_id: "my-session-id" (optional)
+        <br>Omit the session_id to retrieve history for all sessions of the user.
+
+Chat history is cached in memory and also stored in MongoDB per user and session. \
+If the service restarts or the cache is empty, history is loaded from the database.
+Cached sessions are automatically removed after 15 minutes of inactivity.
 
 ---
 
