@@ -3,10 +3,13 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
 import time
+from app.services.openai_llm import summarize_text
 
 load_dotenv()
 
 TTL_SECONDS = 15 * 60  # 15 minutes
+MAX_HISTORY_MESSAGES = 20
+KEEP_LAST_MESSAGES = 6
 
 # Fix: Use MONGO_URI to match .env file
 mongo_uri = os.getenv("MONGO_URI")
@@ -37,6 +40,8 @@ else:
 
 # In-memory history cache keyed by (session_id, user_id)
 session_memory: Dict[Tuple[str, str], List[dict]] = {}
+# Store running summaries for each session
+session_summaries: Dict[Tuple[str, str], str] = {}
 # Track last activity for each session to support cleanup
 session_last_access: Dict[Tuple[str, str], float] = {}
 
@@ -50,6 +55,7 @@ def _cleanup_expired_sessions() -> None:
     for key in expired:
         session_last_access.pop(key, None)
         session_memory.pop(key, None)
+        session_summaries.pop(key, None)
 
 
 def _fetch_history_from_db(user_id: str, session_id: Optional[str] = None) -> Union[List[dict], Dict[str, List[dict]]]:
@@ -66,12 +72,23 @@ def _fetch_history_from_db(user_id: str, session_id: Optional[str] = None) -> Un
             print(f"📄 Found document: {doc}")
             if not doc:
                 return []
-            return doc.get("history", [])
+            session_summaries[(session_id, user_id)] = doc.get("summary", "")
+            history = doc.get("history", [])
+            if doc.get("summary"):
+                history = history[-KEEP_LAST_MESSAGES:]
+            return history
 
         docs = collection.find({"user_id": user_id})
         docs_list = list(docs)
         print(f"📚 Found {len(docs_list)} documents for user: {docs_list}")
-        return {d["session_id"]: d.get("history", []) for d in docs_list}
+        result = {}
+        for d in docs_list:
+            session_summaries[(d["session_id"], user_id)] = d.get("summary", "")
+            hist = d.get("history", [])
+            if d.get("summary"):
+                hist = hist[-KEEP_LAST_MESSAGES:]
+            result[d["session_id"]] = hist
+        return result
     except Exception as e:
         print(f"❌ Error fetching from MongoDB: {e}")
         return [] if session_id else {}
@@ -115,6 +132,9 @@ def get_history(user_id: str, session_id: Optional[str] = None) -> Union[List[di
 def get_memory(user_id: str, session_id: str) -> List[str]:
     history = get_history(user_id, session_id)
     formatted = []
+    summary = session_summaries.get((session_id, user_id))
+    if summary:
+        formatted.append(f"Summary: {summary}")
     for item in history:
         role = item.get("role", "bot").capitalize()
         message = item.get("message", "")
@@ -136,12 +156,29 @@ def update_memory(user_id: str, session_id: str, user_input: str, answer: str):
     session.extend(entries)
     session_last_access[key] = time.time()
 
+    # Summarize if history grows too long
+    if len(session) > MAX_HISTORY_MESSAGES:
+        to_summarize = session[:-KEEP_LAST_MESSAGES]
+        formatted = "\n".join(
+            f"{e['role'].capitalize()}: {e['message']}" for e in to_summarize
+        )
+        summary = summarize_text(formatted)
+        existing = session_summaries.get(key)
+        if existing:
+            summary = existing + "\n" + summary
+        session_summaries[key] = summary
+        session[:] = session[-KEEP_LAST_MESSAGES:]
+
     # Persist to MongoDB
     if collection is not None:
         try:
+            update = {"$push": {"history": {"$each": entries}}}
+            summary = session_summaries.get(key)
+            if summary is not None:
+                update["$set"] = {"summary": summary}
             collection.update_one(
                 {"user_id": user_id, "session_id": session_id},
-                {"$push": {"history": {"$each": entries}}},
+                update,
                 upsert=True,
             )
             print(f"💾 Saved to MongoDB: user_id={user_id}, session_id={session_id}")
@@ -159,6 +196,7 @@ def delete_session_history(user_id: str, session_id: str) -> bool:
     key = (session_id, user_id)
     session_memory.pop(key, None)
     session_last_access.pop(key, None)
+    session_summaries.pop(key, None)
     
     # Remove from MongoDB
     if collection is not None:
