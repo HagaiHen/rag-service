@@ -11,6 +11,7 @@ It allows you to **upload PDF or CSV documents, store them as vector embeddings 
 - Embeds documents using **local SentenceTransformer (MiniLM-L6-v2)** or **OpenAI Embeddings**.
 - Stores vectors efficiently using **FAISS local index**.
 - **Chat** with your documents using **OpenAI GPT models (like GPT-3.5-Turbo)**.
+- Real-time **async chat** endpoint streams tokens as they are generated.
 - Lightweight and privacy-friendly (documents never leave your machine).
 - Duplicate file uploads are automatically detected using **SHA256 hashing**.
 - Simple to run locally or in Docker.
@@ -74,6 +75,9 @@ docker run --env-file .env -p 8000:8000 ragify
         •       user_input: "What is this document about?" <br>
         •       session_id: "my-session-id" <br>
         •       user_id: "my-user"
+        <br><br>
+        •       POST /async_chat <br>
+        •       Same query params as /chat, but streams the response token-by-token
 
 3. Retrieve chat history <br>
         •       GET /history <br>
