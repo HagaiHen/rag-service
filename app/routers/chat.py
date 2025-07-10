@@ -46,7 +46,7 @@ async def async_chat(
         answer = "".join(collected)
         update_memory(user_id, session_id, user_input, answer)
 
-    return StreamingResponse(stream(), media_type="text/plain")
+    return StreamingResponse(stream(), media_type="text/event-stream")
 
 
 @router.get("/history")
